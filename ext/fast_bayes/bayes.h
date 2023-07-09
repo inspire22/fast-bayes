@@ -8,6 +8,7 @@
 #include <limits>
 #include <cmath>
 #include "stopwords.h"
+#include <sstream>
 
 using namespace std;
 typedef long long ll;
@@ -72,12 +73,12 @@ public:
     }
 
     // want to edit this to return probabilities of each class ( can assume only 2 classes )
-    // returns a string - prob easiest to just make a string vs. returning a hash?  "Good: 32342 Bad: 234234"
+    // returns a string - prob easiest to just make a string vs. returning a hash?  "Good: 32342 Bad: 234234".
     string classify(const string &data)
     {
         string ndata = data + " ";
         string best_class = "";
-        string res = "";
+        std::stringstream res;
         double best_score = -numeric_limits<double>::infinity();
 
         // for each classification GROUP
@@ -98,14 +99,9 @@ public:
                 }
             }
 
-            res += label + ":" + score + " "
-            // if (score >= best_score)
-            // {
-            //     best_score = score;
-            //     best_class = label;
-            // }
+            res << label << ":" << std::to_string(score) << " ";
         }
-        return res; // best_class;
+        return res.str();
     }
 };
 
