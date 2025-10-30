@@ -19,12 +19,15 @@ class Bayes
 private:
     // For each label, the count of each word seen with that label
     map<string, unordered_map<string, ll>> word_counts;
-    // amount of each label overall
-    map<string, ll> priori_counts;
-    // Total amount of observations recorded
-    ll count = 0;
-    // Total amounts of each term
-    unordered_map<string, ll> term_counts;
+    // For each label, the number of documents observed for it
+    map<string, ll> doc_counts;
+    // For each label, the total number of words observed for it
+    map<string, ll> class_word_counts;
+    // Total number of documents observed
+    ll doc_count = 0;
+    // All unique terms (the vocabulary) across all classes
+    unordered_set<string> vocabulary;
+
     // Use english by default, TODO add option to use different ones
     const string default_stopwords = "ext/fast_bayes/stopwords/en";
     unordered_set<string> stopwords;
@@ -33,13 +36,56 @@ private:
 
     double estimate_priori(const string &label)
     {
-        return (priori_counts[label] / (double)count);
+        return (doc_counts[label] / (double)doc_count);
     }
 
-    // Occurences of term in class divided by sum of all occurences of term
+    // Standard Multinomial Naive Bayes term probability with Laplace smoothing
     double estimate_term(const string &term, const string &label)
     {
-        return (word_counts[label][term] + smoothing) / ((smoothing * term_counts.size()) + term_counts[term]);
+        ll term_count_in_class = 0; // Default to 0 if term/label not seen
+        if (word_counts.count(label) && word_counts[label].count(term))
+        {
+            term_count_in_class = word_counts[label][term];
+        }
+
+        ll total_words_in_class = class_word_counts[label];
+        return (term_count_in_class + smoothing) / (total_words_in_class + (smoothing * vocabulary.size()));
+    }
+
+    // Tokenizer to be shared by observe and classify
+    vector<pair<string, ll>> tokenize(const string &data)
+    {
+        vector<pair<string, ll>> tokens;
+        string current_word;
+        stringstream ss(data);
+
+        while (ss >> current_word)
+        {
+            string term = current_word;
+            ll occurrence_count = 1;
+
+            size_t separator_pos = current_word.find("%%");
+            if (separator_pos != string::npos)
+            {
+                term = current_word.substr(0, separator_pos);
+                try
+                {
+                    occurrence_count = stoll(current_word.substr(separator_pos + 2));
+                }
+                catch (const std::invalid_argument &ia)
+                {
+                    // Ignore if parsing fails, treat as a single term with count 1
+                    term = current_word;
+                    occurrence_count = 1;
+                }
+            }
+
+            if (term.length() >= 2 && stopwords.find(term) == stopwords.end())
+            {
+                tokens.push_back({term, occurrence_count});
+            }
+        }
+        return tokens;
     }
 
 public:
@@ -51,57 +97,49 @@ public:
     // Add a new observation
     void observe(const string &data, const string &label)
     {
-        string ndata = data + " ";
-        priori_counts[label]++;
-        count++;
+        doc_counts[label]++;
+        doc_count++;
 
-        int prev = 0;
-        // Split by whitespace,
-        for (unsigned int i = 0; i < ndata.length(); i++)
+        vector<pair<string, ll>> tokens = tokenize(data);
+
+        for (const auto &token_pair : tokens)
         {
-            if (ndata[i] == ' ')
-            {
-                const string term = ndata.substr(prev, i - prev);
+            const string &term = token_pair.first;
+            ll occurrence_count = token_pair.second;
 
-                if (term.length() < 2 || stopwords.find(term) != stopwords.end())
-                    continue;
-                word_counts[label][term]++;
-                term_counts[term]++;
-                prev = i + 1;
-            }
+            word_counts[label][term] += occurrence_count;
+            class_word_counts[label] += occurrence_count;
+            vocabulary.insert(term);
         }
     }
 
-    // want to edit this to return probabilities of each class ( can assume only 2 classes )
-    // returns a string - prob easiest to just make a string vs. returning a hash?  "Good: 32342 Bad: 234234".
+    // Returns a space-separated list of all labels and their log-probability scores
     string classify(const string &data)
     {
-        string ndata = data + " ";
-        string best_class = "";
-        std::stringstream res;
-        double best_score = -numeric_limits<double>::infinity();
+        stringstream result_stream;
+        vector<pair<string, ll>> tokens = tokenize(data);
 
-        // for each classification GROUP
-        for (const auto &label_pair : priori_counts)
+        for (const auto &label_pair : doc_counts)
         {
             const string label = label_pair.first;
-
-            // Score for a single label given the data - this is it across all occurances.  Log of num words in corpus / total words?
             double score = log(estimate_priori(label));
-            int prev = 0;
-            // Split by whitespace,
-            for (unsigned int i = 0; i < ndata.length(); i++)
+
+            for (const auto &token_pair : tokens)
             {
-                if (ndata[i] == ' ')
-                {
-                    score += log(estimate_term(ndata.substr(prev, i - prev), label));
-                    prev = i + 1;
-                }
+                const string &term = token_pair.first;
+                // Note: occurrence_count from tokenize is ignored during classification
+                score += log(estimate_term(term, label));
             }
 
-            res << label << ":" << std::to_string(score) << " ";
+            result_stream << label << ":" << to_string(score) << " ";
         }
-        return res.str();
+
+        string result = result_stream.str();
+        if (!result.empty())
+        {
+            result.pop_back(); // Remove the trailing space
+        }
+        return result;
     }
 };
 

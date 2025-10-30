@@ -4,7 +4,8 @@ require "rake/extensiontask"
 
 RSpec::Core::RakeTask.new(:spec)
 
-task :default => :spec
+# task :default => :spec
+task :default => :compile
 
 Rake::ExtensionTask.new "fast_bayes" do |ext|
   ext.lib_dir = "lib/fast_bayes"
