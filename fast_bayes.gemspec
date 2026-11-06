@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["chang.rajani@gmail.com"]
 
   spec.summary       = %q{A naive bayes text classification algorithm implementation using C++ built for Ruby}
-  spec.description   = %q{A naive bayes text classification algorithm built in C++, with a Ruby interface using Rice}
+  spec.description   = %q{A naive bayes text classification algorithm built in C++, with a native Ruby C++ interface}
   spec.homepage      = "https://github.com/Coolnesss/fast-bayes"
   spec.license       = "MIT"
 
@@ -21,9 +21,6 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.extensions = %w[ext/fast_bayes/extconf.rb]
   spec.require_paths = ["lib"]
-
-  spec.add_runtime_dependency 'rice', '~> 2.1', '>= 2.1.0'
-  spec.add_runtime_dependency 'fast-stemmer', '~> 1.0', '>= 1.0.0'
 
   spec.add_development_dependency "bundler"
   # spec.add_development_dependency "rake", "~> 10.0"

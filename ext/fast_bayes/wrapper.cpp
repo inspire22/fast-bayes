@@ -1,34 +1,55 @@
-#include "rice/Class.hpp"
-#include "rice/Constructor.hpp"
+#include <ruby.h>
 #include "bayes.h"
 
-using namespace Rice;
-// This is a dummy class that gets wrapped into a Ruby class
+static void fb_free(void* ptr) {
+    delete static_cast<Bayes*>(ptr);
+}
 
-class FastBayes {
-    private:
-        Bayes b;
-
-    public:
-
-        FastBayes() {};
-
-        void observe(string label, string data) {
-            b.observe(label, data);
-        }
-
-        string classify(string data) {
-            return b.classify(data);
-        }
+static const rb_data_type_t fb_type = {
+    "FastBayes",
+    {
+        nullptr,
+        fb_free,
+        nullptr,
+    },
+    nullptr,
+    nullptr,
+    RUBY_TYPED_FREE_IMMEDIATELY
 };
 
+static VALUE fb_alloc(VALUE klass) {
+    Bayes* b = new Bayes();
+    return TypedData_Wrap_Struct(klass, &fb_type, b);
+}
 
-extern "C"
+static VALUE fb_initialize(VALUE self) {
+    return self;
+}
 
-void Init_fast_bayes() {
-    Data_Type<FastBayes> rb_cbayes =
-    define_class<FastBayes>("FastBayes")
-    .define_constructor(Constructor<FastBayes>())
-    .define_method("observe", &FastBayes::observe)
-    .define_method("classify", &FastBayes::classify);
+static VALUE fb_observe(VALUE self, VALUE label, VALUE data) {
+    Bayes* b;
+    TypedData_Get_Struct(self, Bayes, &fb_type, b);
+    StringValue(label);
+    StringValue(data);
+    std::string label_str(RSTRING_PTR(label), RSTRING_LEN(label));
+    std::string data_str(RSTRING_PTR(data), RSTRING_LEN(data));
+    b->observe(label_str, data_str);
+    return Qnil;
+}
+
+static VALUE fb_classify(VALUE self, VALUE data) {
+    Bayes* b;
+    TypedData_Get_Struct(self, Bayes, &fb_type, b);
+    StringValue(data);
+    std::string data_str(RSTRING_PTR(data), RSTRING_LEN(data));
+    std::string res = b->classify(data_str);
+    return rb_str_new(res.data(), res.size());
+}
+
+extern "C" void Init_fast_bayes() {
+    VALUE rb_cFastBayes = rb_define_class("FastBayes", rb_cObject);
+    rb_define_alloc_func(rb_cFastBayes, fb_alloc);
+    rb_define_method(rb_cFastBayes, "initialize", RUBY_METHOD_FUNC(fb_initialize), 0);
+    rb_define_method(rb_cFastBayes, "observe", RUBY_METHOD_FUNC(fb_observe), 2);
+    rb_define_method(rb_cFastBayes, "classify", RUBY_METHOD_FUNC(fb_classify), 1);
 }
